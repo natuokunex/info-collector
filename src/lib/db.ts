@@ -30,7 +30,8 @@ function initializeDb(db: Database.Database) {
       published_at TEXT,
       collected_at TEXT DEFAULT (datetime('now', 'localtime')),
       is_read INTEGER DEFAULT 0,
-      is_bookmarked INTEGER DEFAULT 0
+      is_bookmarked INTEGER DEFAULT 0,
+      is_paywalled INTEGER DEFAULT 0
     );
 
     CREATE INDEX IF NOT EXISTS idx_articles_category ON articles(category);
@@ -38,6 +39,13 @@ function initializeDb(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_articles_bank ON articles(bank_name);
     CREATE INDEX IF NOT EXISTS idx_articles_source_id ON articles(source_id);
   `);
+
+  // マイグレーション: is_paywalled カラム追加
+  try {
+    db.exec(`ALTER TABLE articles ADD COLUMN is_paywalled INTEGER DEFAULT 0`);
+  } catch {
+    // カラムが既に存在する場合は無視
+  }
 }
 
 export interface Article {
@@ -54,15 +62,16 @@ export interface Article {
   collected_at: string;
   is_read: number;
   is_bookmarked: number;
+  is_paywalled: number;
 }
 
-export function insertArticle(article: Omit<Article, "id" | "collected_at" | "is_read" | "is_bookmarked">): boolean {
+export function insertArticle(article: Omit<Article, "id" | "collected_at" | "is_read" | "is_bookmarked" | "is_paywalled"> & { is_paywalled?: number }): boolean {
   const db = getDb();
   const stmt = db.prepare(`
-    INSERT OR IGNORE INTO articles (source, source_id, title, url, content, author, bank_name, category, published_at)
-    VALUES (@source, @source_id, @title, @url, @content, @author, @bank_name, @category, @published_at)
+    INSERT OR IGNORE INTO articles (source, source_id, title, url, content, author, bank_name, category, published_at, is_paywalled)
+    VALUES (@source, @source_id, @title, @url, @content, @author, @bank_name, @category, @published_at, @is_paywalled)
   `);
-  const result = stmt.run(article);
+  const result = stmt.run({ ...article, is_paywalled: article.is_paywalled || 0 });
   return result.changes > 0;
 }
 
@@ -71,6 +80,8 @@ export function getArticles(options: {
   bank_name?: string;
   search?: string;
   bookmarked?: boolean;
+  date_from?: string;
+  date_to?: string;
   limit?: number;
   offset?: number;
 }): { articles: Article[]; total: number } {
@@ -93,6 +104,14 @@ export function getArticles(options: {
   if (options.bookmarked) {
     conditions.push("is_bookmarked = 1");
   }
+  if (options.date_from) {
+    conditions.push("date(COALESCE(published_at, collected_at)) >= @date_from");
+    params.date_from = options.date_from;
+  }
+  if (options.date_to) {
+    conditions.push("date(COALESCE(published_at, collected_at)) <= @date_to");
+    params.date_to = options.date_to;
+  }
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
   const limit = options.limit || 50;
@@ -109,6 +128,41 @@ export function getArticles(options: {
   const articles = stmt.all({ ...params, limit, offset }) as Article[];
 
   return { articles, total };
+}
+
+export function getRelatedArticles(articleId: number, limit: number = 5): Article[] {
+  const db = getDb();
+  // 元記事のタイトルからキーワードを抽出して関連記事を検索
+  const article = db.prepare("SELECT * FROM articles WHERE id = @id").get({ id: articleId }) as Article | undefined;
+  if (!article) return [];
+
+  // タイトルから主要キーワードを抽出（3文字以上の単語）
+  const titleWords = article.title
+    .replace(/[【】「」『』（）\(\)、。・\s]+/g, " ")
+    .split(" ")
+    .filter((w) => w.length >= 3)
+    .slice(0, 5);
+
+  if (titleWords.length === 0) return [];
+
+  // 各キーワードでLIKE検索し、有料でない記事を優先
+  const likeConditions = titleWords.map((_, i) => `title LIKE @kw${i}`);
+  const kwParams: Record<string, unknown> = { id: articleId, limit };
+  titleWords.forEach((w, i) => {
+    kwParams[`kw${i}`] = `%${w}%`;
+  });
+
+  const stmt = db.prepare(`
+    SELECT *, (${likeConditions.map((c, i) => `CASE WHEN ${c} THEN 1 ELSE 0 END`).join(" + ")}) as relevance
+    FROM articles
+    WHERE id != @id
+      AND is_paywalled = 0
+      AND (${likeConditions.join(" OR ")})
+    ORDER BY relevance DESC, published_at DESC
+    LIMIT @limit
+  `);
+
+  return stmt.all(kwParams) as Article[];
 }
 
 export function toggleBookmark(id: number): boolean {

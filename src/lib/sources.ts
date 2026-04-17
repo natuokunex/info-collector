@@ -177,6 +177,57 @@ export function buildGoogleNewsUrl(bankName: string): string {
   return `https://news.google.com/rss/search?q=${query}&hl=ja&gl=JP&ceid=JP:ja`;
 }
 
+// --- 有料記事ドメイン ---
+export const PAYWALLED_DOMAINS = [
+  "nikkei.com",
+  "nikkin.co.jp",
+] as const;
+
+export function isPaywalledUrl(url: string): boolean {
+  return PAYWALLED_DOMAINS.some((domain) => url.includes(domain));
+}
+
+// --- DX/AI関連性フィルタ ---
+const DX_AI_KEYWORDS = [
+  "AI", "ＡＩ", "人工知能", "生成AI", "生成ＡＩ",
+  "LLM", "ChatGPT", "GPT", "Claude", "Gemini",
+  "DX", "ＤＸ", "デジタルトランスフォーメーション", "デジタル化", "デジタル推進",
+  "フィンテック", "fintech", "FinTech",
+  "オープンバンキング", "BaaS", "API連携", "ＡＰＩ",
+  "RPA", "ＲＰＡ", "自動化", "業務効率化",
+  "クラウド", "SaaS", "ＳａａＳ",
+  "ブロックチェーン", "NFT", "暗号資産",
+  "データ分析", "ビッグデータ", "機械学習", "ディープラーニング",
+  "チャットボット", "RAG", "エージェント",
+  "デジタルバンキング", "ネットバンキング", "スマホ決済", "キャッシュレス",
+  "セキュリティ", "サイバー", "マイナンバー",
+  "電子契約", "ペーパーレス", "リモート",
+  "IT", "ＩＴ", "ICT", "ＩＣＴ", "IoT", "ＩｏＴ",
+];
+
+export function isDxAiRelated(title: string, content?: string | null): boolean {
+  const text = `${title} ${content || ""}`;
+  return DX_AI_KEYWORDS.some((kw) => text.includes(kw));
+}
+
+// --- 日経・ニッキン Google News クエリ ---
+export const PAYWALLED_NEWS_QUERIES = [
+  {
+    name: "日経新聞（銀行DX/AI）",
+    query: "site:nikkei.com 銀行 DX OR AI OR デジタル OR フィンテック",
+    source: "nikkei",
+  },
+  {
+    name: "ニッキン（銀行DX/AI）",
+    query: "site:nikkin.co.jp 銀行 DX OR AI OR デジタル",
+    source: "nikkin",
+  },
+] as const;
+
+export function buildPaywalledNewsUrl(query: string): string {
+  return `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ja&gl=JP&ceid=JP:ja`;
+}
+
 // --- カテゴリ定義 ---
 export const CATEGORIES = [
   { id: "all", label: "すべて" },

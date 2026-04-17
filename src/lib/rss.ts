@@ -1,6 +1,6 @@
 import RssParser from "rss-parser";
 import { insertArticle } from "./db";
-import { RSS_FEEDS, BANKS, buildGoogleNewsUrl } from "./sources";
+import { RSS_FEEDS, BANKS, buildGoogleNewsUrl, isDxAiRelated, isPaywalledUrl, PAYWALLED_NEWS_QUERIES, buildPaywalledNewsUrl } from "./sources";
 import crypto from "crypto";
 
 const parser = new RssParser({
@@ -57,17 +57,25 @@ export async function collectGoogleNewsBanks(): Promise<number> {
           const result = await parser.parseURL(feedUrl);
           let bankInserted = 0;
           for (const item of result.items) {
+            const title = item.title || "無題";
+            const content = item.contentSnippet || item.content || null;
+
+            // DX/AI関連でない記事はスキップ
+            if (!isDxAiRelated(title, content)) continue;
+
             const url = item.link || item.guid || "";
+            const paywalled = isPaywalledUrl(url) ? 1 : 0;
             const success = insertArticle({
               source: "google_news",
               source_id: hashId(url),
-              title: item.title || "無題",
+              title,
               url,
-              content: item.contentSnippet || item.content || null,
+              content,
               author: item.creator || null,
               bank_name: bank.name,
               category: "bank_press",
               published_at: item.isoDate || item.pubDate || null,
+              is_paywalled: paywalled,
             });
             if (success) bankInserted++;
           }
@@ -87,6 +95,47 @@ export async function collectGoogleNewsBanks(): Promise<number> {
     if (i + 5 < allBanks.length) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
+  }
+
+  return inserted;
+}
+
+// --- 日経新聞・ニッキン（有料メディア）---
+export async function collectPaywalledNews(): Promise<number> {
+  let inserted = 0;
+
+  for (const pq of PAYWALLED_NEWS_QUERIES) {
+    try {
+      const feedUrl = buildPaywalledNewsUrl(pq.query);
+      const result = await parser.parseURL(feedUrl);
+
+      for (const item of result.items) {
+        const title = item.title || "無題";
+        const url = item.link || item.guid || "";
+        const content = item.contentSnippet || item.content || null;
+
+        // DX/AI関連チェック
+        if (!isDxAiRelated(title, content)) continue;
+
+        const success = insertArticle({
+          source: "google_news",
+          source_id: hashId(url),
+          title,
+          url,
+          content,
+          author: pq.name,
+          bank_name: null,
+          category: "bank_press",
+          published_at: item.isoDate || item.pubDate || null,
+          is_paywalled: 1,
+        });
+        if (success) inserted++;
+      }
+    } catch (e) {
+      console.error(`有料ニュース取得失敗 [${pq.name}]:`, (e as Error).message);
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   }
 
   return inserted;

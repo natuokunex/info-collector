@@ -1,4 +1,4 @@
-import { collectRssFeeds, collectGoogleNewsBanks } from "./rss";
+import { collectRssFeeds, collectGoogleNewsBanks, collectPaywalledNews } from "./rss";
 import { collectTwitter } from "./twitter";
 import { collectMegaBankPress, collectPrTimes, collectBankAssociations } from "./scraper";
 import { sendDiscordNotification } from "./discord";
@@ -43,9 +43,14 @@ export async function runCollection(): Promise<CollectionResult> {
   console.log(`  → PR TIMES: ${results.prtimes}件, 銀行協会: ${results.bank_assoc}件`);
 
   // Phase 5: Google News（地方銀行）— 最も時間がかかる
-  console.log("[5/5] Google News（地方銀行）収集中...");
+  console.log("[5/6] Google News（地方銀行）収集中...");
   results.google_news = await collectGoogleNewsBanks();
   console.log(`  → ${results.google_news}件`);
+
+  // Phase 6: 日経新聞・ニッキン（有料メディア）
+  console.log("[6/6] 日経新聞・ニッキン収集中...");
+  results.paywalled = await collectPaywalledNews();
+  console.log(`  → ${results.paywalled}件`);
 
   const total = Object.values(results).reduce((a, b) => a + b, 0);
   const duration = Date.now() - start;

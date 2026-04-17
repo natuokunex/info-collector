@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
 import { insertArticle } from "./db";
-import { BANKS } from "./sources";
+import { BANKS, isDxAiRelated, isPaywalledUrl } from "./sources";
 import crypto from "crypto";
 
 function hashId(str: string): string {

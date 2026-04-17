@@ -21,6 +21,8 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [selectedBank, setSelectedBank] = useState("");
   const [bookmarkedOnly, setBookmarkedOnly] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const LIMIT = 30;
@@ -33,6 +35,8 @@ export default function Home() {
       if (search) params.set("search", search);
       if (selectedBank) params.set("bank_name", selectedBank);
       if (bookmarkedOnly) params.set("bookmarked", "1");
+      if (dateFrom) params.set("date_from", dateFrom);
+      if (dateTo) params.set("date_to", dateTo);
       params.set("limit", String(LIMIT));
       params.set("offset", String(page * LIMIT));
 
@@ -46,7 +50,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [category, search, selectedBank, bookmarkedOnly, page]);
+  }, [category, search, selectedBank, bookmarkedOnly, dateFrom, dateTo, page]);
 
   useEffect(() => {
     fetchArticles();
@@ -100,6 +104,44 @@ export default function Home() {
               selectedBank={selectedBank}
               onBankSelect={handleBankSelect}
             />
+            {/* 日付フィルタ */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-[13px] text-text-secondary whitespace-nowrap">期間:</span>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => {
+                    setDateFrom(e.target.value);
+                    setPage(0);
+                  }}
+                  className="bg-white border border-border rounded-[8px] px-2 py-1 text-[13px] text-text-primary focus:outline-none focus:border-zenn-blue h-8"
+                />
+                <span className="text-[13px] text-text-disabled">〜</span>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => {
+                    setDateTo(e.target.value);
+                    setPage(0);
+                  }}
+                  className="bg-white border border-border rounded-[8px] px-2 py-1 text-[13px] text-text-primary focus:outline-none focus:border-zenn-blue h-8"
+                />
+                {(dateFrom || dateTo) && (
+                  <button
+                    onClick={() => {
+                      setDateFrom("");
+                      setDateTo("");
+                      setPage(0);
+                    }}
+                    className="text-[12px] text-text-disabled hover:text-text-secondary"
+                  >
+                    クリア
+                  </button>
+                )}
+              </div>
+            </div>
+
             <div className="flex items-center justify-between">
               <button
                 onClick={() => {
