@@ -16,3 +16,17 @@ export async function POST() {
     );
   }
 }
+
+// cronからcurlで叩けるようにGETも対応
+export async function GET() {
+  try {
+    const result = await runCollection();
+    return NextResponse.json(result);
+  } catch (e) {
+    console.error("収集エラー:", e);
+    return NextResponse.json(
+      { error: (e as Error).message },
+      { status: 500 }
+    );
+  }
+}

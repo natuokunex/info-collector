@@ -93,7 +93,7 @@ export default function Home() {
 
   return (
     <>
-      <Header />
+      <Header onCollectDone={fetchArticles} />
       <main className="flex-1 bg-white">
         <div className="max-w-[960px] mx-auto px-5 py-6">
           {/* フィルタエリア */}
