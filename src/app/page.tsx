@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Header from "@/components/Header";
 import CategoryFilter from "@/components/CategoryFilter";
 import SearchBar from "@/components/SearchBar";
+import BankFilter from "@/components/BankFilter";
 import ArticleCard from "@/components/ArticleCard";
 import { Article } from "@/lib/db";
 
@@ -100,6 +101,11 @@ export default function Home() {
             <CategoryFilter selected={category} onSelect={handleCategoryChange} />
             <SearchBar
               onSearch={handleSearch}
+              bankNames={bankNames}
+              selectedBank={selectedBank}
+              onBankSelect={handleBankSelect}
+            />
+            <BankFilter
               bankNames={bankNames}
               selectedBank={selectedBank}
               onBankSelect={handleBankSelect}

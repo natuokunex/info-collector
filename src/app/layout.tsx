@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "情報収集 | AI・DX・銀行ニュース",
+  title: "Natsuo News | AI・DX・銀行ニュース",
   description: "AI・DX・フィンテック・銀行プレスリリースの自動収集サイト",
 };
 
